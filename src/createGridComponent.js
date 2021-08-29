@@ -94,6 +94,7 @@ export type Props<T> = {|
   rowHeight: itemSize,
   style?: Object,
   useIsScrolling: boolean,
+  useSpan: boolean,
   width: number,
 |};
 
@@ -200,6 +201,7 @@ export default function createGridComponent({
       direction: 'ltr',
       itemData: undefined,
       useIsScrolling: false,
+      useSpan: false,
     };
 
     state: State = {
@@ -409,10 +411,12 @@ export default function createGridComponent({
         rowCount,
         style,
         useIsScrolling,
+        useSpan,
         width,
       } = this.props;
       const { isScrolling } = this.state;
 
+      // we get the visible range
       const [
         columnStartIndex,
         columnStopIndex,
@@ -420,9 +424,10 @@ export default function createGridComponent({
       const [rowStartIndex, rowStopIndex] = this._getVerticalRangeToRender();
 
       const items = [];
+      const visibleItems = [];
       if (columnCount > 0 && rowCount) {
         for (
-          let rowIndex = rowStartIndex;
+          let rowIndex = rowStartIndex; // rowStartINde
           rowIndex <= rowStopIndex;
           rowIndex++
         ) {
@@ -431,6 +436,7 @@ export default function createGridComponent({
             columnIndex <= columnStopIndex;
             columnIndex++
           ) {
+            visibleItems.push(`${rowIndex}-${columnIndex}`);
             items.push(
               createElement(children, {
                 columnIndex,
@@ -441,6 +447,63 @@ export default function createGridComponent({
                 style: this._getItemStyle(rowIndex, columnIndex),
               })
             );
+          }
+        }
+      }
+
+      if (useSpan) {
+        const getCellsForRange = ({ rowStart, rowEnd, colStart, colEnd }) => {
+          const cells = [];
+          for (let row = rowStart; row <= rowEnd; row++) {
+            for (let col = colStart; col <= colEnd; col++) {
+              cells.push(`${row}-${col}`);
+            }
+          }
+          return cells;
+        };
+        const visibleCells = getCellsForRange({
+          rowStart: rowStartIndex,
+          rowEnd: rowStopIndex,
+          colStart: columnStartIndex,
+          colEnd: columnStopIndex,
+        });
+
+        for (const itemDataRowIndex of Object.keys(itemData)) {
+          for (const itemDataColIndex of Object.keys(
+            itemData[itemDataRowIndex]
+          )) {
+            const { colspan = 0, rowspan = 0, row, col } = itemData[
+              itemDataRowIndex
+            ][itemDataColIndex];
+            if (rowspan || colspan) {
+              const range = getCellsForRange({
+                rowStart: row,
+                rowEnd: row + rowspan,
+                colStart: col,
+                colEnd: col + colspan,
+              });
+              if (
+                !visibleItems.includes(`${row}-${col}`) &&
+                visibleCells.some(cell => range.includes(cell))
+              )
+                items.push(
+                  createElement(children, {
+                    columnIndex: itemDataColIndex,
+                    data: itemData,
+                    isScrolling: useIsScrolling ? isScrolling : undefined,
+                    key: itemKey({
+                      columnIndex: itemDataColIndex,
+                      data: itemData,
+                      rowIndex: itemDataRowIndex,
+                    }),
+                    rowIndex: itemDataRowIndex,
+                    style: this._getItemStyle(
+                      itemDataRowIndex,
+                      itemDataColIndex
+                    ),
+                  })
+                );
+            }
           }
         }
       }
