@@ -34,6 +34,8 @@ type onScrollCallback = ({
   scrollDirection: ScrollDirection,
   scrollOffset: number,
   scrollUpdateWasRequested: boolean,
+  scrollTop: number,
+  scrollLeft: number,
 }) => void;
 
 type ScrollEvent = SyntheticEvent<HTMLDivElement>;
@@ -86,6 +88,8 @@ type State = {|
   scrollDirection: ScrollDirection,
   scrollOffset: number,
   scrollUpdateWasRequested: boolean,
+  scrollTop: number,
+  scrollLeft: number,
 |};
 
 type GetItemOffset = (
@@ -177,6 +181,8 @@ export default function createListComponent({
         typeof this.props.initialScrollOffset === 'number'
           ? this.props.initialScrollOffset
           : 0,
+      scrollTop: 0,
+      scrollLeft: 0,
       scrollUpdateWasRequested: false,
     };
 
@@ -393,18 +399,24 @@ export default function createListComponent({
     _callOnScroll: (
       scrollDirection: ScrollDirection,
       scrollOffset: number,
-      scrollUpdateWasRequested: boolean
+      scrollUpdateWasRequested: boolean,
+      scrollTop: number,
+      scrollLeft: number
     ) => void;
     _callOnScroll = memoizeOne(
       (
         scrollDirection: ScrollDirection,
         scrollOffset: number,
-        scrollUpdateWasRequested: boolean
+        scrollUpdateWasRequested: boolean,
+        scrollTop: number,
+        scrollLeft: number
       ) =>
         ((this.props.onScroll: any): onScrollCallback)({
           scrollDirection,
           scrollOffset,
           scrollUpdateWasRequested,
+          scrollTop,
+          scrollLeft,
         })
     );
 
@@ -432,11 +444,15 @@ export default function createListComponent({
           scrollDirection,
           scrollOffset,
           scrollUpdateWasRequested,
+          scrollLeft,
+          scrollTop,
         } = this.state;
         this._callOnScroll(
           scrollDirection,
           scrollOffset,
-          scrollUpdateWasRequested
+          scrollUpdateWasRequested,
+          scrollTop,
+          scrollLeft
         );
       }
     }
@@ -524,7 +540,12 @@ export default function createListComponent({
     }
 
     _onScrollHorizontal = (event: ScrollEvent): void => {
-      const { clientWidth, scrollLeft, scrollWidth } = event.currentTarget;
+      const {
+        clientWidth,
+        scrollLeft,
+        scrollWidth,
+        scrollTop,
+      } = event.currentTarget;
       this.setState(prevState => {
         if (prevState.scrollOffset === scrollLeft) {
           // Scroll position may have been updated by cDM/cDU,
@@ -562,20 +583,27 @@ export default function createListComponent({
           scrollDirection:
             prevState.scrollOffset < scrollLeft ? 'forward' : 'backward',
           scrollOffset,
+          scrollTop,
+          scrollLeft,
           scrollUpdateWasRequested: false,
         };
       }, this._resetIsScrollingDebounced);
     };
 
     _onScrollVertical = (event: ScrollEvent): void => {
-      const { clientHeight, scrollHeight, scrollTop } = event.currentTarget;
+      const {
+        clientHeight,
+        scrollHeight,
+        scrollTop,
+        scrollLeft,
+      } = event.currentTarget;
       this.setState(prevState => {
-        if (prevState.scrollOffset === scrollTop) {
-          // Scroll position may have been updated by cDM/cDU,
-          // In which case we don't need to trigger another render,
-          // And we don't want to update state.isScrolling.
-          return null;
-        }
+        // if (prevState.scrollOffset === scrollTop && prevState.s) {
+        //   // Scroll position may have been updated by cDM/cDU,
+        //   // In which case we don't need to trigger another render,
+        //   // And we don't want to update state.isScrolling.
+        //   return null;
+        // }
 
         // Prevent Safari's elastic scrolling from causing visual shaking when scrolling past bounds.
         const scrollOffset = Math.max(
@@ -588,6 +616,8 @@ export default function createListComponent({
           scrollDirection:
             prevState.scrollOffset < scrollOffset ? 'forward' : 'backward',
           scrollOffset,
+          scrollTop,
+          scrollLeft,
           scrollUpdateWasRequested: false,
         };
       }, this._resetIsScrollingDebounced);
